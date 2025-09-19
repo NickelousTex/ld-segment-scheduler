@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-calendar-plus"></i> Schedule Feature Flag Targeting Rules
+                </h4>
+                <small class="text-muted">Schedule targeting rules for LaunchDarkly feature flags using segments</small>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/schedule" id="scheduleForm">
+                    <!-- Flags Selection -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-flag"></i> Select Feature Flags <span class="badge bg-primary">{{ flags|length }} available</span></h5>
+                        <div class="mb-3">
+                            <label for="flags" class="form-label">Feature Flags <span class="text-danger">*</span></label>
+                            <select class="form-select" id="flags" name="flags" multiple required>
+                                {% for flag in flags %}
+                                <option value="{{ flag.key }}">{{ flag.name }} ({{ flag.key }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple flags</div>
+                        </div>
+                    </div>
+
+                    <!-- Segments Selection -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-users"></i> Select Target Segments <span class="badge bg-success">{{ segments|length }} available</span></h5>
+                        <div class="mb-3">
+                            <label for="segments" class="form-label">Segments <span class="text-danger">*</span></label>
+                            <select class="form-select" id="segments" name="segments" multiple required>
+                                {% for segment in segments %}
+                                <option value="{{ segment.key }}">{{ segment.name }} ({{ segment.key }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple segments</div>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Time -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-clock"></i> Schedule Time</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="schedule_time" class="form-label">Schedule Time (EST) <span class="text-danger">*</span></label>
+                                <input type="datetime-local" class="form-control" id="schedule_time" name="schedule_time" required>
+                                <div class="form-text">Time will be converted to UTC automatically</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="variation" class="form-label">Variation</label>
+                                <select class="form-select" id="variation" name="variation">
+                                    <option value="1">Variation 1 (Default)</option>
+                                    <option value="2">Variation 2</option>
+                                    <option value="3">Variation 3</option>
+                                    <option value="4">Variation 4</option>
+                                </select>
+                                <div class="form-text">Which variation to serve to the segments (matches LaunchDarkly UI)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-calendar-check"></i> Schedule Targeting Rules
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        {% if session.results %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list-check"></i> Scheduling Results</h5>
+            </div>
+            <div class="card-body">
+                {% for result in session.results %}
+                <div class="alert alert-{{ 'success' if result.success else 'danger' }} d-flex align-items-center">
+                    <i class="fas fa-{{ 'check-circle' if result.success else 'exclamation-triangle' }} me-2"></i>
+                    <div>
+                        <strong>{{ result.flag }}:</strong> {{ result.message }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Help Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-question-circle"></i> How to Use</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li><strong>Select Flags:</strong> Choose one or more feature flags to schedule targeting rules for</li>
+                    <li><strong>Select Segments:</strong> Choose the segments that should be targeted by these rules</li>
+                    <li><strong>Set Schedule Time:</strong> Choose when the targeting rules should be activated (in EST timezone)</li>
+                    <li><strong>Choose Variation:</strong> Select which variation of the flag to serve to the segments</li>
+                    <li><strong>Schedule:</strong> Click the button to create the scheduled change in LaunchDarkly</li>
+                </ol>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Note:</strong> The scheduled changes will be created in LaunchDarkly and will automatically execute at the specified time. You can view and manage these scheduled changes in the LaunchDarkly dashboard.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Set default time to 1 hour from now
+    function setDefaultTime() {
+        const now = new Date();
+        now.setHours(now.getHours() + 1);
+        const timeString = now.toISOString().slice(0, 16);
+        document.getElementById('schedule_time').value = timeString;
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        setDefaultTime();
+        
+        // Add some interactivity to the form
+        const form = document.getElementById('scheduleForm');
+        form.addEventListener('submit', function(e) {
+            const flags = document.getElementById('flags').selectedOptions.length;
+            const segments = document.getElementById('segments').selectedOptions.length;
+            
+            if (flags === 0) {
+                alert('Please select at least one feature flag');
+                e.preventDefault();
+                return;
+            }
+            
+            if (segments === 0) {
+                alert('Please select at least one segment');
+                e.preventDefault();
+                return;
+            }
+        });
+    });
+</script>
+{% endblock %}

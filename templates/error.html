@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Configuration Error
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <h5>Unable to start the application</h5>
+                    <p>{{ error }}</p>
+                </div>
+                
+                <h6>Please check your environment variables:</h6>
+                <ul>
+                    <li><code>LD_API_KEY</code> - Your LaunchDarkly API key</li>
+                    <li><code>LD_PROJECT_KEY</code> - Your LaunchDarkly project key</li>
+                    <li><code>LD_ENVIRONMENT_KEY</code> - Your LaunchDarkly environment key</li>
+                </ul>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Make sure you have a <code>.env</code> file in the project directory with these variables set.
+                </div>
+                
+                <a href="/" class="btn btn-primary">
+                    <i class="fas fa-refresh"></i> Try Again
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
