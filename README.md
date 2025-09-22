@@ -1,18 +1,20 @@
 # LaunchDarkly Feature Flag Scheduler
 
-A Python script that leverages LaunchDarkly's native **Scheduled Changes API** to schedule targeting rules for feature flags using segment keys at specific dates and times in EST timezone.
+⚠️ **WARNING: This tool is NOT officially supported by LaunchDarkly. Use at your own risk.**
+
+A Python web application that leverages LaunchDarkly's **Scheduled Changes API** to schedule targeting rules for feature flags using segment keys at specific dates and times in EST timezone.
 
 ## Features
 
-- **Native LaunchDarkly Scheduling**: Uses LaunchDarkly's built-in Scheduled Changes API
-- **Web UI**: Modern web interface with dropdown selections for flags and segments
-- **Command Line Interface**: Full CLI support for automation and scripting
-- Schedule targeting rules for multiple feature flags
-- Target specific segments with custom variations
-- EST timezone support with automatic UTC conversion
-- Pagination support for large numbers of flags and segments
-- Comprehensive error handling and validation
-- No external dependencies for scheduling (LaunchDarkly handles execution)
+- **Web UI**: Modern, intuitive web interface with dropdown selections
+- **Pagination Support**: Handles large numbers of projects, flags, and segments
+- **Multi-Project Support**: Select from all accessible LaunchDarkly projects
+- **Real-time Validation**: Immediate feedback on selections and scheduling
+- **EST Timezone Support**: Automatic UTC conversion for LaunchDarkly API
+- **Multiple Flag Scheduling**: Schedule targeting rules for multiple flags at once
+- **Segment Targeting**: Target specific user segments with custom variations
+- **Comprehensive Error Handling**: Clear error messages and validation
+- **No External Dependencies**: LaunchDarkly handles all scheduling execution
 
 ## Setup
 
@@ -21,122 +23,93 @@ A Python script that leverages LaunchDarkly's native **Scheduled Changes API** t
    pip install -r requirements.txt
    ```
 
-2. **Set environment variables:**
+2. **Configure environment variables:**
    ```bash
    # Copy the example file
    cp env.example .env
    
-   # Edit .env with your actual values
-   LD_API_KEY=your_actual_api_key
-   LD_PROJECT_KEY=your_actual_project_key
-   LD_ENVIRONMENT_KEY=your_actual_environment_key
+   # Edit .env with your LaunchDarkly API key
+   LD_API_KEY=your_launchdarkly_api_key
    ```
 
-3. **Load environment variables:**
+   **Note**: You only need to set `LD_API_KEY`. The application will let you select projects and environments through the web interface.
+
+3. **Start the application:**
    ```bash
-   # Option 1: Use python-dotenv (recommended)
-   pip install python-dotenv
-   # Then add to your script: from dotenv import load_dotenv; load_dotenv()
-   
-   # Option 2: Export manually
-   export LD_API_KEY=your_api_key
-   export LD_PROJECT_KEY=your_project_key
-   export LD_ENVIRONMENT_KEY=your_environment_key
+   python web_ui.py
    ```
+
+4. **Access the web interface:**
+   Open your browser to `http://localhost:3001`
 
 ## Usage
 
-### Web UI (Recommended)
-Start the web interface for easy scheduling:
+### Web Interface
 
-```bash
-# Set environment variables
-export LD_API_KEY=your_api_key
-export LD_PROJECT_KEY=your_project_key
-export LD_ENVIRONMENT_KEY=your_environment_key
+The web interface provides an intuitive way to schedule feature flag targeting rules:
 
-# Start the web UI
-python web_ui.py
-```
+1. **Select Project**: Choose from all LaunchDarkly projects you have access to
+2. **Select Environment**: Pick the target environment for your scheduled changes
+3. **Choose Feature Flags**: Select one or more flags to schedule targeting rules for
+4. **Select Segments**: Choose the user segments to target
+5. **Set Schedule Time**: Pick when the targeting rules should activate (EST timezone)
+6. **Choose Variation**: Select which variation to serve to the targeted segments
+7. **Schedule**: Click to create the scheduled changes in LaunchDarkly
 
-Then open your browser to `http://localhost:3001` and use the intuitive web interface with:
-- Dropdown selections for flags and segments
-- Visual count of available items
-- Date/time picker for scheduling
-- Real-time feedback and results
+### Key Features
 
-### Command Line Interface
-```bash
-python launchdarkly_scheduler.py \
-  --flags flag-key-1 flag-key-2 \
-  --segments segment-key-1 segment-key-2 \
-  --schedule-time "2024-01-15 14:30:00" \
-  --variation 0
-```
-
-### Interactive Mode
-```bash
-python launchdarkly_scheduler.py
-```
-
-### Parameters
-
-- `--flags`: List of feature flag keys to schedule
-- `--segments`: List of segment keys to target
-- `--schedule-time`: Schedule time in EST format (YYYY-MM-DD HH:MM:SS)
-- `--variation`: Variation number to serve (default: 1, matches LaunchDarkly UI)
+- **Project Selection**: Automatically loads all accessible LaunchDarkly projects
+- **Environment Selection**: Dynamic loading of environments based on selected project
+- **Flag & Segment Loading**: Real-time loading with pagination support for large datasets
+- **Time Validation**: Ensures scheduled times are in the future
+- **Batch Scheduling**: Schedule multiple flags with the same targeting rules
+- **Results Display**: Clear feedback on successful and failed scheduling attempts
 
 ## Examples
 
-### Schedule multiple flags for a product launch
-```bash
-python launchdarkly_scheduler.py \
-  --flags new-checkout-flow premium-features beta-dashboard \
-  --segments premium-users beta-testers \
-  --schedule-time "2024-02-01 09:00:00"
-```
+### Product Launch Scenario
+1. Select your production project and environment
+2. Choose multiple feature flags (e.g., "new-checkout-flow", "premium-features")
+3. Select target segments (e.g., "premium-users", "beta-testers")
+4. Set schedule time for launch (e.g., "2024-02-01 09:00:00 EST")
+5. Choose appropriate variations for each flag
+6. Schedule all changes at once
 
-### Schedule a single flag with custom variation
-```bash
-python launchdarkly_scheduler.py \
-  --flags special-promotion \
-  --segments vip-customers \
-  --schedule-time "2024-01-20 12:00:00" \
-  --variation 1
-```
+### Gradual Rollout
+1. Select your project and environment
+2. Choose a single feature flag
+3. Select a small test segment
+4. Set immediate or near-future schedule time
+5. Monitor results before scheduling broader rollouts
 
-### Create segments and schedule rules
-```bash
-# First create a segment
-python launchdarkly_scheduler.py --create-segment premium-users "Premium Users"
-
-# Then schedule rules using that segment
-python launchdarkly_scheduler.py \
-  --flags new-feature \
-  --segments premium-users \
-  --schedule-time "2024-12-25 10:00:00"
-```
+### Holiday Campaign
+1. Select your project and environment
+2. Choose campaign-related flags
+3. Select holiday-specific segments
+4. Schedule for specific holiday timing
+5. Set appropriate variations for the campaign
 
 ## Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `LD_API_KEY` | LaunchDarkly API key | `api-1234567890abcdef` |
-| `LD_PROJECT_KEY` | LaunchDarkly project key | `my-project` |
-| `LD_ENVIRONMENT_KEY` | LaunchDarkly environment key | `production` |
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `LD_API_KEY` | LaunchDarkly API key | ✅ Yes | `api-1234567890abcdef` |
+| `LD_PROJECT_KEY` | LaunchDarkly project key | ❌ No | Selected via web UI |
+| `LD_ENVIRONMENT_KEY` | LaunchDarkly environment key | ❌ No | Selected via web UI |
 
 ## Timezone Handling
 
-The script automatically converts EST times to UTC for LaunchDarkly's API. All schedule times should be provided in EST format: `YYYY-MM-DD HH:MM:SS`.
+The application automatically converts EST times to UTC for LaunchDarkly's API. All schedule times are provided in EST format through the web interface datetime picker.
 
 ## Error Handling
 
-The script includes comprehensive error handling for:
-- Missing environment variables
-- Invalid time formats
-- API connection issues
-- Invalid flag or segment keys
-- Network timeouts
+The application includes comprehensive error handling for:
+- Missing or invalid API keys
+- Network connectivity issues
+- Invalid project/environment selections
+- Missing or invalid flag/segment keys
+- Scheduling time validation (must be in the future)
+- API rate limiting and timeouts
 
 ## Requirements
 
@@ -144,8 +117,44 @@ The script includes comprehensive error handling for:
 - requests>=2.31.0
 - pytz>=2023.3
 - python-dotenv>=1.0.0
-- flask>=2.3.0 (for web UI)
+- flask>=2.3.0
+
+## Security Considerations
+
+⚠️ **Important Security Notes:**
+
+- This tool requires a LaunchDarkly API key with full project access
+- Store your API key securely and never commit it to version control
+- The tool creates scheduled changes in LaunchDarkly that will execute automatically
+- Review all scheduled changes in the LaunchDarkly dashboard before execution
+- Use appropriate API key permissions and rotate keys regularly
+
+## Troubleshooting
+
+### Common Issues
+
+**"Configuration error: Missing LD_API_KEY"**
+- Ensure your `.env` file contains a valid `LD_API_KEY`
+- Verify the API key has appropriate permissions
+
+**"Error loading projects"**
+- Check your internet connection
+- Verify your API key is valid and not expired
+- Ensure you have access to LaunchDarkly projects
+
+**"No flags/segments available"**
+- Verify you've selected a valid project and environment
+- Check that the environment contains flags and segments
+- Ensure your API key has read permissions for the selected project
+
+**"Schedule time must be in the future"**
+- Set a schedule time that is at least a few minutes in the future
+- Check that your system clock is accurate
 
 ## License
 
 MIT License
+
+## Disclaimer
+
+This tool is not officially supported by LaunchDarkly. Use at your own risk. Always test in non-production environments first and review scheduled changes before they execute.
