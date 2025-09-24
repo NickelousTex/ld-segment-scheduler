@@ -11,34 +11,57 @@
                 <small class="text-muted">Schedule targeting rules for LaunchDarkly feature flags using segments</small>
             </div>
             <div class="card-body">
-                <form method="POST" action="/schedule" id="scheduleForm">
-                    <!-- Flags Selection -->
-                    <div class="form-section">
-                        <h5><i class="fas fa-flag"></i> Select Feature Flags <span class="badge bg-primary">{{ flags|length }} available</span></h5>
-                        <div class="mb-3">
-                            <label for="flags" class="form-label">Feature Flags <span class="text-danger">*</span></label>
-                            <select class="form-select" id="flags" name="flags" multiple required>
-                                {% for flag in flags %}
-                                <option value="{{ flag.key }}">{{ flag.name }} ({{ flag.key }})</option>
+                <!-- Project and Environment Selection -->
+                <div class="form-section">
+                    <h5><i class="fas fa-building"></i> Select Project and Environment</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="project_key" class="form-label">Project <span class="text-danger">*</span></label>
+                            <select class="form-select" id="project_key" name="project_key" required>
+                                <option value="">Select a project...</option>
+                                {% for project in projects %}
+                                <option value="{{ project.key }}">{{ project.name }} ({{ project.key }})</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Hold Ctrl/Cmd to select multiple flags</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="environment_key" class="form-label">Environment <span class="text-danger">*</span></label>
+                            <select class="form-select" id="environment_key" name="environment_key" required disabled>
+                                <option value="">Select a project first...</option>
+                            </select>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Segments Selection -->
-                    <div class="form-section">
-                        <h5><i class="fas fa-users"></i> Select Target Segments <span class="badge bg-success">{{ segments|length }} available</span></h5>
-                        <div class="mb-3">
-                            <label for="segments" class="form-label">Segments <span class="text-danger">*</span></label>
-                            <select class="form-select" id="segments" name="segments" multiple required>
-                                {% for segment in segments %}
-                                <option value="{{ segment.key }}">{{ segment.name }} ({{ segment.key }})</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Hold Ctrl/Cmd to select multiple segments</div>
+                <!-- Flags and Segments Selection (hidden initially) -->
+                <div id="flags-segments-section" style="display: none;">
+                    <form method="POST" action="/schedule" id="scheduleForm">
+                        <input type="hidden" id="form_project_key" name="project_key">
+                        <input type="hidden" id="form_environment_key" name="environment_key">
+                        
+                        <!-- Flags Selection -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-flag"></i> Select Feature Flags <span class="badge bg-primary" id="flags-count">0 available</span></h5>
+                            <div class="mb-3">
+                                <label for="flags" class="form-label">Feature Flags <span class="text-danger">*</span></label>
+                                <select class="form-select" id="flags" name="flags" multiple required>
+                                    <option value="">Loading flags...</option>
+                                </select>
+                                <div class="form-text">Hold Ctrl/Cmd to select multiple flags</div>
+                            </div>
                         </div>
-                    </div>
+
+                        <!-- Segments Selection -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-users"></i> Select Target Segments <span class="badge bg-success" id="segments-count">0 available</span></h5>
+                            <div class="mb-3">
+                                <label for="segments" class="form-label">Segments <span class="text-danger">*</span></label>
+                                <select class="form-select" id="segments" name="segments" multiple required>
+                                    <option value="">Loading segments...</option>
+                                </select>
+                                <div class="form-text">Hold Ctrl/Cmd to select multiple segments</div>
+                            </div>
+                        </div>
 
                     <!-- Schedule Time -->
                     <div class="form-section">
@@ -62,13 +85,14 @@
                         </div>
                     </div>
 
-                    <!-- Submit Button -->
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-calendar-check"></i> Schedule Targeting Rules
-                        </button>
-                    </div>
-                </form>
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-calendar-check"></i> Schedule Targeting Rules
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -124,28 +148,143 @@
         document.getElementById('schedule_time').value = timeString;
     }
 
+    // Handle project selection
+    function handleProjectChange() {
+        const projectSelect = document.getElementById('project_key');
+        const environmentSelect = document.getElementById('environment_key');
+        const flagsSegmentsSection = document.getElementById('flags-segments-section');
+        
+        if (projectSelect.value) {
+            // Enable environment dropdown
+            environmentSelect.disabled = false;
+            environmentSelect.innerHTML = '<option value="">Loading environments...</option>';
+            
+            // Fetch environments
+            fetch('/select-project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `project_key=${encodeURIComponent(projectSelect.value)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error loading environments: ' + data.error);
+                    return;
+                }
+                
+                environmentSelect.innerHTML = '<option value="">Select an environment...</option>';
+                data.environments.forEach(env => {
+                    const option = document.createElement('option');
+                    option.value = env.key;
+                    option.textContent = `${env.name} (${env.key})`;
+                    environmentSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading environments');
+            });
+        } else {
+            environmentSelect.disabled = true;
+            environmentSelect.innerHTML = '<option value="">Select a project first...</option>';
+            flagsSegmentsSection.style.display = 'none';
+        }
+    }
+
+    // Handle environment selection
+    function handleEnvironmentChange() {
+        const projectSelect = document.getElementById('project_key');
+        const environmentSelect = document.getElementById('environment_key');
+        const flagsSegmentsSection = document.getElementById('flags-segments-section');
+        
+        if (projectSelect.value && environmentSelect.value) {
+            // Show flags and segments section
+            flagsSegmentsSection.style.display = 'block';
+            
+            // Set hidden form values
+            document.getElementById('form_project_key').value = projectSelect.value;
+            document.getElementById('form_environment_key').value = environmentSelect.value;
+            
+            // Show loading state
+            document.getElementById('flags').innerHTML = '<option value="">Loading flags...</option>';
+            document.getElementById('segments').innerHTML = '<option value="">Loading segments...</option>';
+            
+            // Fetch flags and segments
+            fetch('/select-environment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `project_key=${encodeURIComponent(projectSelect.value)}&environment_key=${encodeURIComponent(environmentSelect.value)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error loading flags and segments: ' + data.error);
+                    return;
+                }
+                
+                // Populate flags
+                const flagsSelect = document.getElementById('flags');
+                flagsSelect.innerHTML = '';
+                data.flags.forEach(flag => {
+                    const option = document.createElement('option');
+                    option.value = flag.key;
+                    option.textContent = `${flag.name} (${flag.key})`;
+                    flagsSelect.appendChild(option);
+                });
+                document.getElementById('flags-count').textContent = `${data.flags.length} available`;
+                
+                // Populate segments
+                const segmentsSelect = document.getElementById('segments');
+                segmentsSelect.innerHTML = '';
+                data.segments.forEach(segment => {
+                    const option = document.createElement('option');
+                    option.value = segment.key;
+                    option.textContent = `${segment.name} (${segment.key})`;
+                    segmentsSelect.appendChild(option);
+                });
+                document.getElementById('segments-count').textContent = `${data.segments.length} available`;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading flags and segments');
+            });
+        } else {
+            flagsSegmentsSection.style.display = 'none';
+        }
+    }
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         setDefaultTime();
         
-        // Add some interactivity to the form
+        // Add event listeners
+        document.getElementById('project_key').addEventListener('change', handleProjectChange);
+        document.getElementById('environment_key').addEventListener('change', handleEnvironmentChange);
+        
+        // Add form validation
         const form = document.getElementById('scheduleForm');
-        form.addEventListener('submit', function(e) {
-            const flags = document.getElementById('flags').selectedOptions.length;
-            const segments = document.getElementById('segments').selectedOptions.length;
-            
-            if (flags === 0) {
-                alert('Please select at least one feature flag');
-                e.preventDefault();
-                return;
-            }
-            
-            if (segments === 0) {
-                alert('Please select at least one segment');
-                e.preventDefault();
-                return;
-            }
-        });
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const flags = document.getElementById('flags').selectedOptions.length;
+                const segments = document.getElementById('segments').selectedOptions.length;
+                
+                if (flags === 0) {
+                    alert('Please select at least one feature flag');
+                    e.preventDefault();
+                    return;
+                }
+                
+                if (segments === 0) {
+                    alert('Please select at least one segment');
+                    e.preventDefault();
+                    return;
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

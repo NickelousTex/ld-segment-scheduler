@@ -65,7 +65,7 @@ The web interface provides an intuitive way to schedule feature flag targeting r
 - **Batch Scheduling**: Schedule multiple flags with the same targeting rules
 - **Results Display**: Clear feedback on successful and failed scheduling attempts
 
-## Examples
+## Example
 
 ### Product Launch Scenario
 1. Select your production project and environment
@@ -74,29 +74,6 @@ The web interface provides an intuitive way to schedule feature flag targeting r
 4. Set schedule time for launch (e.g., "2024-02-01 09:00:00 EST")
 5. Choose appropriate variations for each flag
 6. Schedule all changes at once
-
-### Gradual Rollout
-1. Select your project and environment
-2. Choose a single feature flag
-3. Select a small test segment
-4. Set immediate or near-future schedule time
-5. Monitor results before scheduling broader rollouts
-
-### Holiday Campaign
-1. Select your project and environment
-2. Choose campaign-related flags
-3. Select holiday-specific segments
-4. Schedule for specific holiday timing
-5. Set appropriate variations for the campaign
-
-## Environment Variables
-
-| Variable | Description | Required | Example |
-|----------|-------------|----------|---------|
-| `LD_API_KEY` | LaunchDarkly API key | ✅ Yes | `api-1234567890abcdef` |
-| `LD_PROJECT_KEY` | LaunchDarkly project key | ❌ No | Selected via web UI |
-| `LD_ENVIRONMENT_KEY` | LaunchDarkly environment key | ❌ No | Selected via web UI |
-
 ## Timezone Handling
 
 The application automatically converts EST times to UTC for LaunchDarkly's API. All schedule times are provided in EST format through the web interface datetime picker.

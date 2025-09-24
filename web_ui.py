@@ -19,19 +19,68 @@ app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 
 class LaunchDarklyAPI:
-    def __init__(self):
+    def __init__(self, project_key=None, environment_key=None):
         self.api_key = os.getenv('LD_API_KEY')
-        self.project_key = os.getenv('LD_PROJECT_KEY')
-        self.environment_key = os.getenv('LD_ENVIRONMENT_KEY')
+        self.project_key = project_key or os.getenv('LD_PROJECT_KEY')
+        self.environment_key = environment_key or os.getenv('LD_ENVIRONMENT_KEY')
         self.base_url = 'https://app.launchdarkly.com/api/v2'
         
-        if not all([self.api_key, self.project_key, self.environment_key]):
-            raise ValueError("Missing required environment variables: LD_API_KEY, LD_PROJECT_KEY, LD_ENVIRONMENT_KEY")
+        if not self.api_key:
+            raise ValueError("Missing required environment variable: LD_API_KEY")
         
         self.headers = {
             'Authorization': self.api_key,
             'Content-Type': 'application/json'
         }
+    
+    def get_projects(self):
+        """Get all projects accessible to the API key with pagination."""
+        all_projects = []
+        offset = 0
+        limit = 20
+        
+        while True:
+            url = f'{self.base_url}/projects?limit={limit}&offset={offset}'
+            try:
+                response = requests.get(url, headers=self.headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    projects = data.get('items', [])
+                    
+                    if not projects:  # No more projects
+                        break
+                    
+                    all_projects.extend([{
+                        'key': project['key'], 
+                        'name': project.get('name', project['key'])
+                    } for project in projects])
+                    
+                    # Check if we got fewer than the limit (last page)
+                    if len(projects) < limit:
+                        break
+                    
+                    offset += limit
+                else:
+                    print(f"Error fetching projects: {response.status_code}")
+                    break
+            except Exception as e:
+                print(f"Error fetching projects: {e}")
+                break
+        
+        return all_projects
+    
+    def get_environments(self, project_key):
+        """Get all environments for a specific project."""
+        url = f'{self.base_url}/projects/{project_key}/environments'
+        try:
+            response = requests.get(url, headers=self.headers)
+            if response.status_code == 200:
+                environments = response.json()
+                return [{'key': env['key'], 'name': env.get('name', env['key'])} for env in environments.get('items', [])]
+            return []
+        except Exception as e:
+            print(f"Error fetching environments: {e}")
+            return []
     
     def get_flags(self):
         """Get all feature flags in the project with pagination."""
@@ -215,7 +264,7 @@ class LaunchDarklyAPI:
         except requests.exceptions.RequestException as e:
             return False, f"Error scheduling rules: {e}"
 
-# Initialize the API client
+# Initialize the API client (minimal initialization)
 try:
     ld_api = LaunchDarklyAPI()
 except ValueError as e:
@@ -224,19 +273,60 @@ except ValueError as e:
 
 @app.route('/')
 def index():
-    """Main page with the scheduling form."""
+    """Main page with project/environment selection."""
     if ld_api is None:
-        return render_template('error.html', error="Configuration error: Missing environment variables")
+        return render_template('error.html', error="Configuration error: Missing LD_API_KEY environment variable")
     
     try:
-        print("🔄 Loading flags and segments...")
-        flags = ld_api.get_flags()
-        segments = ld_api.get_segments()
-        print(f"✅ Loaded {len(flags)} flags and {len(segments)} segments")
-        return render_template('index.html', flags=flags, segments=segments)
+        projects = ld_api.get_projects()
+        return render_template('index.html', projects=projects)
     except Exception as e:
-        print(f"❌ Error loading data: {e}")
-        return render_template('error.html', error=f"Error loading data: {e}")
+        print(f"❌ Error loading projects: {e}")
+        return render_template('error.html', error=f"Error loading projects: {e}")
+
+@app.route('/select-project', methods=['POST'])
+def select_project():
+    """Handle project selection and show environments."""
+    if ld_api is None:
+        return jsonify({'error': 'Configuration error'}), 500
+    
+    try:
+        project_key = request.form.get('project_key')
+        if not project_key:
+            return jsonify({'error': 'No project selected'}), 400
+        
+        environments = ld_api.get_environments(project_key)
+        return jsonify({'environments': environments})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/select-environment', methods=['POST'])
+def select_environment():
+    """Handle environment selection and show flags/segments."""
+    if ld_api is None:
+        return jsonify({'error': 'Configuration error'}), 500
+    
+    try:
+        project_key = request.form.get('project_key')
+        environment_key = request.form.get('environment_key')
+        
+        if not project_key or not environment_key:
+            return jsonify({'error': 'Missing project or environment'}), 400
+        
+        # Create a new API instance with the selected project/environment
+        api_instance = LaunchDarklyAPI(project_key, environment_key)
+        
+        flags = api_instance.get_flags()
+        segments = api_instance.get_segments()
+        
+        return jsonify({
+            'flags': flags,
+            'segments': segments,
+            'project_key': project_key,
+            'environment_key': environment_key
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flags')
 def api_flags():
@@ -271,10 +361,16 @@ def schedule():
     
     try:
         # Get form data
+        project_key = request.form.get('project_key')
+        environment_key = request.form.get('environment_key')
         flag_keys = request.form.getlist('flags')
         segment_keys = request.form.getlist('segments')
         schedule_time = request.form.get('schedule_time')
         variation = int(request.form.get('variation', 1))
+        
+        if not project_key or not environment_key:
+            flash('Please select a project and environment', 'error')
+            return redirect(url_for('index'))
         
         if not flag_keys:
             flash('Please select at least one flag', 'error')
@@ -288,10 +384,13 @@ def schedule():
             flash('Please enter a schedule time', 'error')
             return redirect(url_for('index'))
         
+        # Create API instance with selected project/environment
+        api_instance = LaunchDarklyAPI(project_key, environment_key)
+        
         # Schedule for each flag
         results = []
         for flag_key in flag_keys:
-            success, message = ld_api.schedule_targeting_rules(
+            success, message = api_instance.schedule_targeting_rules(
                 flag_key, segment_keys, schedule_time, variation
             )
             results.append({'flag': flag_key, 'success': success, 'message': message})
@@ -308,6 +407,8 @@ def schedule():
         # Store results for display (using session)
         from flask import session
         session['results'] = results
+        session['project_key'] = project_key
+        session['environment_key'] = environment_key
         
         return redirect(url_for('index'))
         
